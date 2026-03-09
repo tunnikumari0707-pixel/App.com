@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<title>ST Creation AI</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<style>
+
+body{font-family:system-ui}
+
+.sidebar{transition:transform .3s}
+
+.message{max-width:85%}
+
+.stlogo{
+width:28px;
+height:28px;
+}
+
+</style>
+
+</head>
+
+<body class="bg-gray-100 min-h-screen flex">
+
+<div id="loading"
+class="fixed inset-0 flex items-center justify-center bg-white text-xl">
+Loading ST Creation AI...
+</div>
+
+<!-- SIDEBAR -->
+
+<div id="sidebar"
+class="sidebar bg-white w-64 border-r flex flex-col fixed md:relative h-full z-20 -translate-x-full md:translate-x-0">
+
+<div class="p-4 border-b">
+
+<div class="flex items-center gap-2 font-bold text-lg">
+
+<img class="stlogo"
+src="https://cdn-icons-png.flaticon.com/512/4712/4712027.png">
+
+ST Creation AI
+
+</div>
+
+<button id="newChat"
+class="mt-3 bg-blue-500 text-white px-3 py-1 rounded w-full">
+
+New Chat
+
+</button>
+
+</div>
+
+<div id="chatList"
+class="flex-1 overflow-y-auto"></div>
+
+<div class="p-3 border-t">
+
+<button id="settingsBtn"
+class="text-sm">
+
+Settings
+
+</button>
+
+</div>
+
+</div>
+
+<!-- MAIN -->
+
+<div class="flex-1 flex flex-col w-full">
+
+<!-- HEADER -->
+
+<div class="flex items-center p-3 border-b bg-white">
+
+<button id="menuBtn"
+class="mr-3 md:hidden text-xl">
+
+☰
+
+</button>
+
+<div class="font-semibold">
+
+ST Creation AI Agent
+
+</div>
+
+<div class="ml-auto flex items-center gap-2">
+
+<select id="modelSelect"
+class="border rounded px-2 py-1 text-sm">
+
+<option value="deepseek/deepseek-r1:free">
+DeepSeek Free
+</option>
+
+<option value="openai/gpt-4o-mini">
+GPT-4o Mini
+</option>
+
+<option value="anthropic/claude-3-haiku">
+Claude Haiku
+</option>
+
+<option value="google/gemini-pro">
+Gemini
+</option>
+
+<option value="custom">
+Custom Model
+</option>
+
+</select>
+
+<input id="customModel"
+placeholder="custom model"
+class="border px-2 py-1 text-sm rounded hidden">
+
+<button id="voiceBtn">🎤</button>
+
+<button id="uploadBtn">📎</button>
+
+<input type="file"
+id="fileInput"
+class="hidden">
+
+<button id="darkToggle">🌙</button>
+
+</div>
+
+</div>
+
+<!-- CHAT AREA -->
+
+<div id="chatArea"
+class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+
+<!-- INPUT -->
+
+<div class="border-t bg-white p-3 sticky bottom-0">
+
+<div class="flex gap-2">
+
+<input id="messageInput"
+class="flex-1 border rounded px-3 py-2"
+placeholder="Ask anything...">
+
+<button id="sendBtn"
+class="bg-blue-500 text-white px-4 rounded">
+
+Send
+
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+<!-- SETTINGS MODAL -->
+
+<div id="settingsModal"
+class="fixed inset-0 hidden bg-black/40 flex items-center justify-center">
+
+<div class="bg-white p-6 rounded w-80">
+
+<h2 class="font-bold mb-3">
+
+Settings
+
+</h2>
+
+<label class="text-sm">
+
+OpenRouter API Key
+
+</label>
+
+<input id="apiKey"
+type="password"
+class="border w-full px-2 py-1 mb-3">
+
+<label class="text-sm">
+
+System Prompt
+
+</label>
+
+<textarea id="systemPrompt"
+class="border w-full px-2 py-1 mb-3"></textarea>
+
+<button id="saveSettings"
+class="bg-blue-500 text-white px-3 py-1 rounded">
+
+Save
+
+</button>
+
+</div>
+
+</div>
+
+<script>
+
+const chatArea=document.getElementById("chatArea")
+const input=document.getElementById("messageInput")
+const sendBtn=document.getElementById("sendBtn")
+
+const sidebar=document.getElementById("sidebar")
+const menuBtn=document.getElementById("menuBtn")
+
+const newChatBtn=document.getElementById("newChat")
+const chatList=document.getElementById("chatList")
+
+const settingsBtn=document.getElementById("settingsBtn")
+const settingsModal=document.getElementById("settingsModal")
+const saveSettings=document.getElementById("saveSettings")
+
+const apiKeyInput=document.getElementById("apiKey")
+const systemPromptInput=document.getElementById("systemPrompt")
+
+const modelSelect=document.getElementById("modelSelect")
+const customModel=document.getElementById("customModel")
+
+const voiceBtn=document.getElementById("voiceBtn")
+
+const uploadBtn=document.getElementById("uploadBtn")
+const fileInput=document.getElementById("fileInput")
+
+let chats=JSON.parse(localStorage.getItem("st_chats")||"[]")
+
+let currentChat=0
+
+function saveChats(){
+
+localStorage.setItem("st_chats",JSON.stringify(chats))
+
+}
+
+function renderChats(){
+
+chatList.innerHTML=""
+
+chats.forEach((c,i)=>{
+
+let row=document.createElement("div")
+
+row.className="p-2 border-b cursor-pointer text-sm"
+
+row.innerText=c.name||"Chat "+(i+1)
+
+row.onclick=()=>{
+
+currentChat=i
+loadChat()
+
+}
+
+chatList.appendChild(row)
+
+})
+
+}
+
+function renderUser(text){
+
+let row=document.createElement("div")
+
+row.className="text-right"
+
+let bubble=document.createElement("div")
+
+bubble.className="inline-block px-3 py-2 bg-blue-500 text-white rounded"
+
+bubble.innerText=text
+
+row.appendChild(bubble)
+
+chatArea.appendChild(row)
+
+}
+
+function renderAI(text){
+
+let row=document.createElement("div")
+
+row.className="flex items-start gap-2"
+
+let logo=document.createElement("img")
+
+logo.src="https://cdn-icons-png.flaticon.com/512/4712/4712027.png"
+
+logo.className="stlogo"
+
+let bubble=document.createElement("div")
+
+bubble.className="bg-white border px-3 py-2 rounded max-w-xl"
+
+bubble.innerHTML=marked.parse(text)
+
+row.appendChild(logo)
+row.appendChild(bubble)
+
+chatArea.appendChild(row)
+
+chatArea.scrollTop=chatArea.scrollHeight
+
+return bubble
+
+}
+
+function newChat(){
+
+chats.push({
+name:"New Chat",
+messages:[]
+})
+
+currentChat=chats.length-1
+
+saveChats()
+
+renderChats()
+
+loadChat()
+
+}
+
+function loadChat(){
+
+chatArea.innerHTML=""
+
+let chat=chats[currentChat]
+
+if(!chat)return
+
+chat.messages.forEach(m=>{
+
+if(m.role==="user")renderUser(m.content)
+
+if(m.role==="assistant")renderAI(m.content)
+
+})
+
+}
+
+async function sendMessage(){
+
+let text=input.value.trim()
+
+if(!text)return
+
+renderUser(text)
+
+input.value=""
+
+let chat=chats[currentChat]
+
+chat.messages.push({
+role:"user",
+content:text
+})
+
+saveChats()
+
+let bubble=renderAI("...")
+
+let apiKey=localStorage.getItem("st_api")
+
+if(!apiKey){
+
+bubble.innerText="Add API key in settings"
+
+return
+
+}
+
+let model=modelSelect.value
+
+if(model==="custom"){
+
+model=customModel.value
+
+}
+
+let systemPrompt=localStorage.getItem("st_prompt")||""
+
+let messages=[
+
+{role:"system",content:systemPrompt},
+
+...chat.messages
+
+]
+
+try{
+
+let res=await fetch(
+"https://openrouter.ai/api/v1/chat/completions",
+{
+
+method:"POST",
+
+headers:{
+"Content-Type":"application/json",
+"Authorization":"Bearer "+apiKey,
+"HTTP-Referer":location.href,
+"X-Title":"ST Creation AI"
+},
+
+body:JSON.stringify({
+
+model:model,
+
+messages:messages
+
+})
+
+})
+
+let data=await res.json()
+
+let reply=data.choices?.[0]?.message?.content||"Error"
+
+bubble.innerHTML=marked.parse(reply)
+
+chat.messages.push({
+role:"assistant",
+content:reply
+})
+
+saveChats()
+
+}catch(e){
+
+bubble.innerText="API Error"
+
+}
+
+}
+
+sendBtn.onclick=sendMessage
+
+input.addEventListener("keypress",e=>{
+
+if(e.key==="Enter")sendMessage()
+
+})
+
+menuBtn.onclick=()=>{
+
+sidebar.classList.toggle("-translate-x-full")
+
+}
+
+newChatBtn.onclick=newChat
+
+settingsBtn.onclick=()=>{
+
+settingsModal.classList.remove("hidden")
+
+}
+
+saveSettings.onclick=()=>{
+
+localStorage.setItem("st_api",apiKeyInput.value)
+
+localStorage.setItem("st_prompt",systemPromptInput.value)
+
+settingsModal.classList.add("hidden")
+
+}
+
+modelSelect.onchange=function(){
+
+if(modelSelect.value==="custom"){
+
+customModel.classList.remove("hidden")
+
+}else{
+
+customModel.classList.add("hidden")
+
+}
+
+localStorage.setItem("st_model",modelSelect.value)
+
+}
+
+uploadBtn.onclick=()=>{
+
+fileInput.click()
+
+}
+
+fileInput.onchange=()=>{
+
+let file=fileInput.files[0]
+
+let reader=new FileReader()
+
+reader.onload=function(){
+
+renderUser("File uploaded:\n"+reader.result.slice(0,500))
+
+}
+
+reader.readAsText(file)
+
+}
+
+voiceBtn.onclick=()=>{
+
+if(!('webkitSpeechRecognition' in window)){
+
+alert("Voice not supported")
+
+return
+
+}
+
+let rec=new webkitSpeechRecognition()
+
+rec.lang="en-US"
+
+rec.onresult=function(e){
+
+input.value=e.results[0][0].transcript
+
+}
+
+rec.start()
+
+}
+
+document.getElementById("darkToggle").onclick=()=>{
+
+document.body.classList.toggle("bg-gray-900")
+
+document.body.classList.toggle("text-white")
+
+}
+
+function init(){
+
+if(chats.length===0)newChat()
+
+renderChats()
+
+loadChat()
+
+document.getElementById("loading").style.display="none"
+
+}
+
+init()
+
+</script>
+
+</body>
+</html>
