@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ST Creation AI</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#0f172a;
+color:white;
+display:flex;
+flex-direction:column;
+height:100vh;
+}
+
+header{
+background:#020617;
+padding:15px;
+display:flex;
+align-items:center;
+justify-content:center;
+font-size:22px;
+font-weight:bold;
+gap:10px;
+}
+
+.logo{
+background:#38bdf8;
+color:black;
+padding:5px 10px;
+border-radius:6px;
+font-weight:bold;
+}
+
+#settings{
+background:#020617;
+padding:10px;
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+}
+
+input,select{
+padding:7px;
+border-radius:6px;
+border:none;
+}
+
+button{
+padding:8px 12px;
+border:none;
+border-radius:6px;
+background:#38bdf8;
+cursor:pointer;
+}
+
+#chat{
+flex:1;
+overflow:auto;
+padding:15px;
+}
+
+.msg{
+margin-bottom:15px;
+}
+
+.user{
+text-align:right;
+}
+
+.ai{
+background:#1e293b;
+padding:10px;
+border-radius:10px;
+}
+
+.meta{
+font-size:12px;
+opacity:0.7;
+margin-bottom:5px;
+}
+
+.copyBtn{
+font-size:11px;
+margin-top:5px;
+}
+
+#inputArea{
+display:flex;
+padding:10px;
+background:#020617;
+gap:8px;
+}
+
+#message{
+flex:1;
+padding:10px;
+border-radius:6px;
+border:none;
+}
+
+.typing{
+opacity:0.7;
+font-style:italic;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<div class="logo">ST</div>
+ST Creation AI
+</header>
+
+<div id="settings">
+
+<input id="apikey" placeholder="OpenRouter API Key">
+
+<select id="model">
+
+<option value="deepseek/deepseek-r1:free">DeepSeek R1</option>
+<option value="mistralai/mistral-7b-instruct:free">Mistral 7B</option>
+<option value="openchat/openchat-7b:free">OpenChat</option>
+
+</select>
+
+<input id="customModel" placeholder="Custom Model">
+
+<button onclick="clearChat()">Clear Chat</button>
+
+</div>
+
+<div id="chat"></div>
+
+<div id="inputArea">
+
+<input id="message" placeholder="Ask anything...">
+
+<button onclick="send()">Send</button>
+
+</div>
+
+<script>
+
+let chat=document.getElementById("chat")
+
+let history=[]
+
+loadSettings()
+loadChat()
+
+document.getElementById("message")
+.addEventListener("keypress",e=>{
+if(e.key==="Enter") send()
+})
+
+function saveSettings(){
+
+localStorage.setItem(
+"api",
+document.getElementById("apikey").value
+)
+
+}
+
+function loadSettings(){
+
+let api=localStorage.getItem("api")
+
+if(api) document.getElementById("apikey").value=api
+
+}
+
+function saveChat(){
+
+localStorage.setItem(
+"st_chat",
+JSON.stringify(history)
+)
+
+}
+
+function loadChat(){
+
+let data=localStorage.getItem("st_chat")
+
+if(!data) return
+
+history=JSON.parse(data)
+
+history.forEach(m=>render(m.role,m.content,false))
+
+}
+
+function render(role,text,save=true){
+
+let div=document.createElement("div")
+
+div.className="msg "+role
+
+if(role==="user"){
+
+div.innerHTML=`${text}`
+
+}else{
+
+div.innerHTML=`
+
+<div class="ai">
+
+<div class="meta">ST 🤖</div>
+
+<div class="content">${text}</div>
+
+<button class="copyBtn">copy</button>
+
+</div>
+
+`
+
+div.querySelector(".copyBtn")
+.onclick=()=>navigator.clipboard.writeText(text)
+
+}
+
+chat.appendChild(div)
+
+chat.scrollTop=chat.scrollHeight
+
+if(save){
+
+history.push({role:role,content:text})
+
+saveChat()
+
+}
+
+}
+
+function clearChat(){
+
+chat.innerHTML=""
+
+history=[]
+
+saveChat()
+
+}
+
+async function send(){
+
+let msg=document.getElementById("message").value.trim()
+
+if(!msg) return
+
+saveSettings()
+
+render("user",msg)
+
+document.getElementById("message").value=""
+
+render("ai","<span class='typing'>Typing...</span>",false)
+
+let typingNode=chat.lastChild
+
+let api=document.getElementById("apikey").value
+
+let model=document.getElementById("customModel").value
+|| document.getElementById("model").value
+
+try{
+
+let res=await fetch(
+
+"https://openrouter.ai/api/v1/chat/completions",
+
+{
+
+method:"POST",
+
+headers:{
+
+"Content-Type":"application/json",
+
+"Authorization":"Bearer "+api,
+
+"HTTP-Referer":location.href,
+
+"X-Title":"ST Creation AI"
+
+},
+
+body:JSON.stringify({
+
+model:model,
+
+messages:history.concat([{role:"user",content:msg}])
+
+})
+
+}
+
+)
+
+let data=await res.json()
+
+typingNode.remove()
+
+if(data.error){
+
+render("ai","API Error: "+data.error.message)
+
+return
+
+}
+
+let reply=data.choices[0].message.content
+
+render("ai",reply)
+
+}catch(e){
+
+typingNode.remove()
+
+render("ai","Network error or invalid API key")
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
