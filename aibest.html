@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ST Creation AI</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#0f172a;
+color:white;
+display:flex;
+flex-direction:column;
+height:100vh;
+}
+
+header{
+background:#020617;
+padding:15px;
+font-size:22px;
+text-align:center;
+font-weight:bold;
+}
+
+#settings{
+background:#020617;
+padding:10px;
+}
+
+input,select{
+padding:8px;
+margin:5px;
+border-radius:6px;
+border:none;
+}
+
+button{
+padding:8px 12px;
+background:#38bdf8;
+border:none;
+border-radius:6px;
+cursor:pointer;
+}
+
+#chat{
+flex:1;
+overflow:auto;
+padding:15px;
+}
+
+.user{
+text-align:right;
+margin:10px;
+}
+
+.ai{
+background:#1e293b;
+padding:10px;
+border-radius:8px;
+margin:10px;
+}
+
+#inputArea{
+display:flex;
+padding:10px;
+background:#020617;
+}
+
+#message{
+flex:1;
+padding:10px;
+border-radius:6px;
+border:none;
+}
+
+.typing{
+opacity:0.7;
+font-style:italic;
+}
+
+.debug{
+font-size:12px;
+opacity:0.6;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>ST Creation AI 🤖</header>
+
+<div id="settings">
+
+API Key  
+<input id="apikey" placeholder="Paste OpenRouter API key">
+
+<br>
+
+Model
+
+<select id="model">
+<option value="deepseek/deepseek-r1:free">
+DeepSeek R1 Free
+</option>
+
+<option value="mistralai/mistral-7b-instruct:free">
+Mistral 7B Free
+</option>
+</select>
+
+Custom Model
+
+<input id="customModel" placeholder="optional">
+
+</div>
+
+<div id="chat"></div>
+
+<div id="inputArea">
+
+<input id="message" placeholder="Type message...">
+
+<button onclick="send()">Send</button>
+
+</div>
+
+<script>
+
+const chat=document.getElementById("chat")
+
+document.getElementById("message")
+.addEventListener("keypress",function(e){
+if(e.key==="Enter") send()
+})
+
+function addUser(msg){
+
+chat.innerHTML+=`<div class="user">${msg}</div>`
+
+}
+
+function addAI(msg){
+
+chat.innerHTML+=`
+<div class="ai">
+<b>ST 🤖</b><br>
+${msg}
+</div>
+`
+
+chat.scrollTop=chat.scrollHeight
+
+}
+
+async function send(){
+
+let msg=document.getElementById("message").value.trim()
+
+if(!msg) return
+
+let api=document.getElementById("apikey").value.trim()
+
+if(!api){
+
+alert("Enter API key")
+
+return
+
+}
+
+let model=document.getElementById("customModel").value
+|| document.getElementById("model").value
+
+addUser(msg)
+
+document.getElementById("message").value=""
+
+addAI("<span class='typing'>typing...</span>")
+
+try{
+
+let res=await fetch(
+"https://openrouter.ai/api/v1/chat/completions",
+{
+method:"POST",
+
+headers:{
+"Content-Type":"application/json",
+"Authorization":"Bearer "+api,
+"HTTP-Referer":location.href,
+"X-Title":"ST Creation AI"
+},
+
+body:JSON.stringify({
+
+model:model,
+
+messages:[
+{
+role:"user",
+content:msg
+}
+]
+
+})
+
+})
+
+let status=res.status
+
+let data=await res.json()
+
+chat.lastChild.remove()
+
+if(!res.ok){
+
+addAI("HTTP Error: "+status+"<br><div class='debug'>"+JSON.stringify(data)+"</div>")
+return
+
+}
+
+let reply=data.choices[0].message.content
+
+addAI(reply)
+
+}catch(e){
+
+chat.lastChild.remove()
+
+addAI("Network Error: "+e.message)
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
